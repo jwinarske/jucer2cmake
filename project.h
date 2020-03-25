@@ -2,6 +2,7 @@
 #include <ostream>
 #include <vector>
 #include <list>
+#include <map>
 #include <pugixml.hpp>
 
 class project
@@ -48,10 +49,10 @@ public:
     std::string get_cmake_file();
 
 private:
+    typedef std::map<std::string, std::string> map_t;
 
     pugi::xml_document m_Doc;
 
-    std::vector<std::string> split(const std::string& s, char delimiter);
     bool downloadJuceSource;
     std::string base_path;
     std::string output_path;
@@ -115,6 +116,14 @@ private:
     std::vector<std::string> get_export_formats();
     std::list<std::string> get_module_path_list();
     std::string get_module_paths();
+    std::vector<std::string> get_module_list();
+    std::list<std::string> get_libraries(const project::map_t &system);
+
+    static const map_t OSXFramework;
+    static const map_t iOSFrameworks;
+    static const map_t linuxPackages;
+    static const map_t linuxLibs;
+    static const map_t mingwLibs;
 
     std::string get_autogen_vars();
 
@@ -124,7 +133,8 @@ private:
     std::string get_executable();
     std::string get_common_options();
     std::string get_target_config();
-    std::string get_apple_config();
+    std::string get_apple_osx_config();
+    std::string get_apple_ios_config();
     std::string get_linux_config();
     std::string get_msvc_config();
 

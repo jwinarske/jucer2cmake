@@ -5,6 +5,7 @@
 #include <sstream>
 #include <fstream>
 #include <sys/stat.h>
+#include "utilities.h"
 
 project::project()
 {
@@ -129,6 +130,41 @@ std::string project::get_autogen_vars()
     ss << "\n";
 
     return ss.str();
+}
+
+std::vector<std::string> project::get_module_list()
+{
+    std::vector<std::string> res;
+
+    pugi::xpath_node_set set = m_Doc.select_nodes("/JUCERPROJECT/MODULES/MODULE");
+    for (pugi::xpath_node_set::const_iterator it = set.begin(); it != set.end(); ++it)
+    {
+        pugi::xpath_node node = *it;
+        res.push_back(node.node().attribute("id").value());
+    }
+
+    return res;
+}
+
+std::list<std::string> project::get_libraries(const project::map_t& system)
+{
+    std::list<std::string> res;
+    for(auto &item : get_module_list())
+    {
+        //std::cout << "Module: " << item << "\n";
+        if ( system.find(item) != system.end() )
+        {
+            auto libs = system.at(item);
+            //std::cout << "libs: " << libs << "\n";
+            for(auto const &lib : utilities::getValueList(libs))
+            {
+                //std::cout << "lib: " << lib << "\n";
+                res.push_back(lib);
+            }
+        }
+    }
+    res.unique();
+    return res;
 }
 
 std::string project::get_modules()
@@ -301,7 +337,7 @@ project::project(std::string file, std::string outpath)
         std::string _headerPath = node.attribute("headerPath").as_string();
         if(!_headerPath.empty())
         {
-            headerPath = split(_headerPath, '\n');
+            headerPath = utilities::split(_headerPath, '\n');
         }
         companyWebsite = node.attribute("companyWebsite").as_string();
         defines = node.attribute("defines").as_string();
@@ -324,7 +360,7 @@ std::string project::get_defines()
 
     ss << "    JUCE_APP_VERSION=" << version << "\n";
     ss << "    JUCE_APP_VERSION_HEX=0x";
-    auto ver = split(version, '.');
+    auto ver = utilities::split(version, '.');
     ss << std::hex << std::setw(2) << std::setfill('0') << ver[0];
     ss << std::hex << std::setw(2) << std::setfill('0') << ver[1];
     ss << std::hex << std::setw(2) << std::setfill('0') << ver[2];
@@ -525,12 +561,12 @@ void project::get_export(std::string target, project::buildExport &build)
         std::string _extraDefs = node.node().attribute("extraDefs").value();
         if(!_extraDefs.empty())
         {
-            build.extraDefs = split(_extraDefs, '\n');
+            build.extraDefs = utilities::split(_extraDefs, '\n');
         }
         std::string _externalLibraries = node.node().attribute("externalLibraries").value();
         if(!_externalLibraries.empty())
         {
-            build.externalLibraries = split(_externalLibraries, '\n');
+            build.externalLibraries = utilities::split(_externalLibraries, '\n');
         }
         build.extraLinkerFlags = node.node().attribute("extraLinkerFlags").value();
         build.cppLanguageStandard = node.node().attribute("cppLanguageStandard").value();
@@ -551,12 +587,12 @@ void project::get_export(std::string target, project::buildExport &build)
         std::string _headerPath = node.node().attribute("headerPath").as_string();
         if(!_headerPath.empty())
         {
-            build.debug.headerPath = split(_headerPath, '\n');
+            build.debug.headerPath = utilities::split(_headerPath, '\n');
         }
         std::string _libraryPath = node.node().attribute("libraryPath").as_string();
         if(!_libraryPath.empty())
         {
-            build.debug.libraryPath = split(_libraryPath, '\n');
+            build.debug.libraryPath = utilities::split(_libraryPath, '\n');
         }
         build.debug.valid = true;
     }
@@ -574,18 +610,18 @@ void project::get_export(std::string target, project::buildExport &build)
         std::string _headerPath = node.node().attribute("headerPath").as_string();
         if(!_headerPath.empty())
         {
-            build.release.headerPath = split(_headerPath, '\n');
+            build.release.headerPath = utilities::split(_headerPath, '\n');
         }
         std::string _libraryPath = node.node().attribute("libraryPath").as_string();
         if(!_libraryPath.empty())
         {
-            build.release.libraryPath = split(_libraryPath, '\n');
+            build.release.libraryPath = utilities::split(_libraryPath, '\n');
         }
         build.release.valid = true;
     }
 }
 
-std::string project::get_apple_config()
+std::string project::get_apple_osx_config()
 {
     std::stringstream ss;
 
@@ -625,24 +661,21 @@ std::string project::get_apple_config()
         ss << "\n";
     }
 
-    ss << "        find_library(CORE_LIB CoreFoundation)\n";
-    ss << "        find_library(COCOA_LIB Cocoa)\n";
-    ss << "        find_library(IOKIT_LIB IOKit)\n";
-    ss << "        find_library(ACCELERATE_LIB Accelerate)\n";
-    ss << "        find_library(COREAUDIO_LIB CoreAudio)\n";
-    ss << "        find_library(COREMIDI_LIB CoreMIDI)\n";
-    ss << "        find_library(AUDIOKIT_LIB AudioToolbox)\n";
-    ss << "        find_library(WEBKIT_LIB WebKit)\n";
-    ss << "        find_library(QUARTZ_LIB QuartzCore)\n";
+    int count = 0;
+    for(auto const& framework : get_libraries(OSXFramework))
+    {
+        ss << "        find_library(FRAMEWORK" << count++ << " " << framework << ")\n";
+    }
     ss << "\n";
     ss << "        target_link_libraries(" << name << "\n";
     for(auto const& library : b.externalLibraries)
     {
         ss << "            " << library << "\n";
     }
-    ss << "            ${CORE_LIB} ${COCOA_LIB} ${IOKIT_LIB}\n";
-    ss << "            ${COREAUDIO_LIB} ${COREMIDI_LIB} ${AUDIOKIT_LIB}\n";
-    ss << "            ${WEBKIT_LIB} ${QUARTZ_LIB} ${ACCELERATE_LIB}\n";
+    for(int i = 0; i < count; i++)
+    {
+        ss << "            ${FRAMEWORK" << i <<  "}\n";
+    }
     ss << "        )\n";
 
     return ss.str();
@@ -660,53 +693,73 @@ std::string project::get_linux_config()
     }
     std::cout << "Using Linux Config" << std::endl;
 
-    std::string pkgcfg_libs;
-    std::string libs;
-    if(projectType == "guiapp" || projectType == "audioplug" || projectType == "library" || projectType == "consoleapp")
+    auto packages = get_libraries(linuxPackages);
+    if(!packages.empty())
     {
-        pkgcfg_libs = " alsa x11 xinerama xext freetype2 webkit2gtk-4.0 gtk+-x11-3.0 libcurl";
-        libs = " GL";
+        ss << "\n";
+        ss << "        include(FindPkgConfig)\n";
+        ss << "        pkg_check_modules(JUCE_LIBS REQUIRED\n";
+        ss << "            ";
+        for(auto const& package : packages)
+        {
+            ss << package << " ";
+        }
+        ss << "\n)\n";
     }
-    else
+    if(!b.debug.headerPath.empty() || !packages.empty())
     {
-        pkgcfg_libs = " alsa libcurl";
-        libs = "";
+        ss << "\n";
+        ss << "        target_include_directories(" << name << " PUBLIC\n";
+        if(!packages.empty())
+        {
+            ss << "            ${JUCE_LIBS_INCLUDE_DIRS}\n";
+        }
+        for(auto const& path : b.debug.headerPath)
+        {
+            ss << "            " << path << "\n";
+        }
+        ss << "        )\n";
     }
-
-    ss << "        include(FindPkgConfig)\n";
-    ss << "        pkg_check_modules(JUCE_LIBS REQUIRED" << pkgcfg_libs << ")\n";
-    ss << "\n";
-    ss << "        target_include_directories(" << name << " PUBLIC\n";
-    ss << "            ${JUCE_LIBS_INCLUDE_DIRS}\n";
-    for(auto const& path : b.debug.headerPath)
-    {
-        ss << "            " << path << "\n";
-    }
-    ss << "        )\n";
-    ss << "\n";
     if(!b.extraCompilerFlags.empty())
     {
-        ss << "        target_compile_options(" << name << " PUBLIC " << b.extraCompilerFlags << ")\n";
         ss << "\n";
+        ss << "        target_compile_options(" << name << " PUBLIC " << b.extraCompilerFlags << ")\n";
     }
     if(!b.debug.libraryPath.empty())
     {
+        ss << "\n";
         ss << "        target_link_directories(" << name << " BEFORE PUBLIC\n";
         for(auto const& path : b.debug.libraryPath)
         {
             ss << "            " << path << "\n";
         }
         ss << "        )\n";
-        ss << "\n";
     }
-    ss << "        target_link_libraries(" << name << "\n";
-    for(auto const& library : b.externalLibraries)
+
+    auto libs = get_libraries(linuxLibs);
+    if(!b.externalLibraries.empty() || !packages.empty() || !libs.empty())
     {
-        ss << "            " << library << "\n";
+        ss << "\n";
+        ss << "        target_link_libraries(" << name << "\n";
+        for(auto const& library : b.externalLibraries)
+        {
+            ss << "            " << library << "\n";
+        }
+        if(!packages.empty())
+        {
+            ss << "            ${JUCE_LIBS_LIBRARIES}\n";
+        }
+        if(!libs.empty())
+        {
+            ss << "            ";
+            for(auto const& lib : get_libraries(linuxLibs))
+            {
+                ss << lib << " ";
+            }
+            ss << "\n";
+        }
+        ss << "        )\n";
     }
-    ss << "            ${JUCE_LIBS_LIBRARIES}\n";
-    ss << "            rt dl pthread" << libs << "\n";
-    ss << "        )\n";
 
     return ss.str();
 }
@@ -746,6 +799,7 @@ std::string project::get_msvc_config()
     
     if(!b.debug.headerPath.empty())
     {
+        ss << "\n";
         ss << "    target_include_directories(" << name << " PUBLIC\n";
         for(auto const& path : b.debug.headerPath)
         {
@@ -756,6 +810,7 @@ std::string project::get_msvc_config()
     }
     if(!b.extraCompilerFlags.empty() || !b.extraDefs.empty())
     {
+        ss << "\n";
         ss << "    target_compile_options(" << name << " PUBLIC \n";
         if(!b.extraCompilerFlags.empty())
         {
@@ -766,20 +821,20 @@ std::string project::get_msvc_config()
             ss << "        " << def << "\n";
         }
         ss << "    )\n";
-        ss << "\n";
     }
     if(!b.debug.libraryPath.empty())
     {
+        ss << "\n";
         ss << "    target_link_directories(" << name << " BEFORE PUBLIC\n";
         for(auto const& path : b.debug.libraryPath)
         {
             ss << "        \"" << path << "\"\n";
         }
         ss << "    )\n";
-        ss << "\n";
     }
     if(!b.externalLibraries.empty() || !b.extraLinkerFlags.empty())
     {
+        ss << "\n";
         ss << "    target_link_libraries(" << name << "\n";
         for(auto const& library : b.externalLibraries)
         {
@@ -797,27 +852,15 @@ std::string project::get_target_config()
     std::stringstream ss;
     ss << "if(UNIX)\n";
     ss << "    if(APPLE)\n";
-    ss <<          get_apple_config();
+    ss <<          get_apple_osx_config();
     ss << "    elseif(ANDROID)\n";
     ss << "    else()\n";
     ss <<          get_linux_config();
     ss << "    endif()\n";
-    ss << "elseif(MSVC)    \n";
+    ss << "elseif(MSVC)\n";
     ss <<      get_msvc_config();
     ss << "endif()\n";
     return ss.str();
-}
-
-std::vector<std::string> project::split(const std::string& s, char delimiter)
-{
-   std::vector<std::string> tokens;
-   std::string token;
-   std::istringstream tokenStream(s);
-   while (std::getline(tokenStream, token, delimiter))
-   {
-      tokens.push_back(token);
-   }
-   return tokens;
 }
 
 std::string project::get_cmake_file()
@@ -901,3 +944,51 @@ void project::print()
     ss << "userNotes = " << userNotes << "\n";
     std::cout << ss.str() << std::endl;
 }
+
+/* These are used when module directories are not present */
+const project::map_t project::OSXFramework = {
+    { "juce_audio_basics", "Accelerate" },
+    { "juce_audio_devices", "CoreAudio CoreMIDI AudioToolbox" },
+    { "juce_audio_formats", "CoreAudio CoreMIDI QuartzCore AudioToolbox" },
+    { "juce_audio_processors", "CoreAudio CoreMIDI AudioToolbox" },
+    { "juce_audio_utils", "CoreAudioKit DiscRecording" },
+    { "juce_core", "Cocoa IOKit" },
+    { "juce_dsp", "Accelerate" },
+    { "juce_graphics", "Cocoa QuartzCore" },
+    { "juce_gui_basics", "Cocoa Carbon QuartzCore" },
+    { "juce_gui_extra", "WebKit" },
+    { "juce_opengl", "OpenGL" },
+    { "juce_video", "AVKit AVFoundation CoreMedia" },
+};
+
+const project::map_t project::iOSFrameworks = {
+    { "juce_audio_basics", "Accelerate" },
+    { "juce_audio_devices", "CoreAudio CoreMIDI AudioToolbox AVFoundation" },
+    { "juce_audio_formats", "AudioToolbox QuartzCore" },
+    { "juce_audio_processors", "AudioToolbox" },
+    { "juce_audio_utils", "CoreAudioKit" },
+    { "juce_core", "Foundation" },
+    { "juce_dsp", "Accelerate" },
+    { "juce_graphics", "CoreGraphics CoreImage CoreText QuartzCore" },
+    { "juce_gui_basics", "UIKit MobileCoreServices" },
+    { "juce_opengl", "OpenGLES" },
+    { "juce_video", "AVKit AVFoundation CoreMedia" },
+};
+
+const project::map_t project::linuxPackages = {
+    { "juce_audio_devices", "alsa" },
+    { "juce_graphics", "x11 xinerama xext freetype2" },
+    { "juce_gui_basics", "x11 xinerama xext freetype2" },
+};
+
+const project::map_t project::linuxLibs = {
+    { "juce_core", "rt dl pthread" },
+    { "juce_opengl", "GL" },
+};
+
+const project::map_t project::mingwLibs = {
+    { "juce_audio_devices", "winmm" },
+    { "juce_core", "uuid wsock32 wininet version ole32 ws2_32 oleaut32 imm32 comdlg32 shlwapi rpcrt4 winmm" },
+    { "juce_opengl", "opengl32" },
+};
+

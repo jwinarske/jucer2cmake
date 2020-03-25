@@ -39,7 +39,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include_directories(${CMAKE_INSTALL_PREFIX}/include)
 link_directories(${CMAKE_INSTALL_PREFIX}/lib)
 
-add_executable(jucer2cmake main.cpp project.cpp)
+add_executable(jucer2cmake main.cpp project.cpp module.cpp utilities.cpp)
 add_dependencies(jucer2cmake pugixml)
 
 if(UNIX)

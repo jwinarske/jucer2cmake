@@ -158,12 +158,21 @@ std::list<std::string> project::get_libraries(const project::map_t& system)
             //std::cout << "libs: " << libs << "\n";
             for(auto const &lib : utilities::getValueList(libs))
             {
-                //std::cout << "lib: " << lib << "\n";
+                //std::cout << "lib: [" << lib << "]\n";
                 res.push_back(lib);
             }
         }
     }
+    res.sort();
     res.unique();
+    #if 0
+    std::cout << "Libraries" << std::endl;
+    for(auto const& item : res)
+    {
+        std::cout << "[" << item << "]" << std::endl;
+    }
+    #endif
+
     return res;
 }
 
@@ -621,6 +630,66 @@ void project::get_export(std::string target, project::buildExport &build)
     }
 }
 
+std::string project::get_apple_ios_config()
+{
+    std::stringstream ss;
+
+    project::buildExport b;
+    get_export("XCODE_IPHONE", b);
+    if(!b.valid)
+    {
+        return "";
+    }
+    std::cout << "Using iOS Config" << std::endl;
+
+    if(!b.debug.headerPath.empty())
+    {
+        ss << "            target_include_directories(" << name << " PUBLIC\n";
+        for(auto const& path : b.debug.headerPath)
+        {
+            ss << "                " << path << "\n";
+        }
+        ss << "            )\n";
+        ss << "\n";
+    }
+
+    if(!b.extraCompilerFlags.empty())
+    {
+        ss << "            target_compile_options(" << name << " PUBLIC " << b.extraCompilerFlags << ")\n";
+        ss << "\n";
+    }
+
+    if(!b.debug.libraryPath.empty())
+    {
+        ss << "            target_link_directories(" << name << " BEFORE PUBLIC\n";
+        for(auto const& path : b.debug.libraryPath)
+        {
+            ss << "                " << path << "\n";
+        }
+        ss << "            )\n";
+        ss << "\n";
+    }
+
+    int count = 0;
+    for(auto const& framework : get_libraries(iOSFrameworks))
+    {
+        ss << "            find_library(FRAMEWORK" << count++ << " " << framework << ")\n";
+    }
+    ss << "\n";
+    ss << "            target_link_libraries(" << name << "\n";
+    for(auto const& library : b.externalLibraries)
+    {
+        ss << "                " << library << "\n";
+    }
+    for(int i = 0; i < count; i++)
+    {
+        ss << "                ${FRAMEWORK" << i <<  "}\n";
+    }
+    ss << "            )\n";
+
+    return ss.str();
+}
+
 std::string project::get_apple_osx_config()
 {
     std::stringstream ss;
@@ -635,48 +704,48 @@ std::string project::get_apple_osx_config()
 
     if(!b.debug.headerPath.empty())
     {
-        ss << "        target_include_directories(" << name << " PUBLIC\n";
+        ss << "            target_include_directories(" << name << " PUBLIC\n";
         for(auto const& path : b.debug.headerPath)
         {
-            ss << "            " << path << "\n";
+            ss << "                " << path << "\n";
         }
-        ss << "        )\n";
+        ss << "            )\n";
         ss << "\n";
     }
 
     if(!b.extraCompilerFlags.empty())
     {
-        ss << "        target_compile_options(" << name << " PUBLIC " << b.extraCompilerFlags << ")\n";
+        ss << "            target_compile_options(" << name << " PUBLIC " << b.extraCompilerFlags << ")\n";
         ss << "\n";
     }
 
     if(!b.debug.libraryPath.empty())
     {
-        ss << "        target_link_directories(" << name << " BEFORE PUBLIC\n";
+        ss << "            target_link_directories(" << name << " BEFORE PUBLIC\n";
         for(auto const& path : b.debug.libraryPath)
         {
-            ss << "            " << path << "\n";
+            ss << "                " << path << "\n";
         }
-        ss << "        )\n";
+        ss << "            )\n";
         ss << "\n";
     }
 
     int count = 0;
     for(auto const& framework : get_libraries(OSXFramework))
     {
-        ss << "        find_library(FRAMEWORK" << count++ << " " << framework << ")\n";
+        ss << "            find_library(FRAMEWORK" << count++ << " " << framework << ")\n";
     }
     ss << "\n";
-    ss << "        target_link_libraries(" << name << "\n";
+    ss << "            target_link_libraries(" << name << "\n";
     for(auto const& library : b.externalLibraries)
     {
-        ss << "            " << library << "\n";
+        ss << "                " << library << "\n";
     }
     for(int i = 0; i < count; i++)
     {
-        ss << "            ${FRAMEWORK" << i <<  "}\n";
+        ss << "                ${FRAMEWORK" << i <<  "}\n";
     }
-    ss << "        )\n";
+    ss << "            )\n";
 
     return ss.str();
 }
@@ -852,7 +921,11 @@ std::string project::get_target_config()
     std::stringstream ss;
     ss << "if(UNIX)\n";
     ss << "    if(APPLE)\n";
-    ss <<          get_apple_osx_config();
+    ss << "        if(${CMAKE_SYSTEM_NAME} STREQUAL \"Darwin\")\n";
+    ss <<              get_apple_osx_config();
+    ss << "        elseif(${CMAKE_SYSTEM_NAME} STREQUAL \"iOS\")\n";
+    ss <<              get_apple_ios_config();
+    ss << "        endif()\n";
     ss << "    elseif(ANDROID)\n";
     ss << "    else()\n";
     ss <<          get_linux_config();

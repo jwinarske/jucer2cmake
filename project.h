@@ -56,6 +56,7 @@ private:
     bool downloadJuceSource;
     std::string base_path;
     std::string output_path;
+    std::string sepd;
    
     std::string id;
     std::string name;

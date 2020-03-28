@@ -282,6 +282,7 @@ project::project(std::string file, std::string outpath)
     version = DEFAULT_VERSION;
 
     base_path = file.substr(0, file.find_last_of("\\/"));
+    sepd = (base_path.find("\\") != std::string::npos) ? "\\" : "/";
 
     if(outpath.empty())
     {
@@ -1055,7 +1056,7 @@ const project::map_t project::linuxPackages = {
 };
 
 const project::map_t project::linuxLibs = {
-    { "juce_core", "rt dl pthread" },
+    { "juce_core", "curl rt dl pthread" },
     { "juce_opengl", "GL" },
 };
 

@@ -648,7 +648,7 @@ std::string project::get_apple_ios_config()
         ss << "            target_include_directories(" << name << " PUBLIC\n";
         for(auto const& path : b.debug.headerPath)
         {
-            ss << "                " << path << "\n";
+            ss << "                ${CMAKE_SYSROOT}/" << path << "\n";
         }
         ss << "            )\n";
         ss << "\n";
@@ -665,7 +665,7 @@ std::string project::get_apple_ios_config()
         ss << "            target_link_directories(" << name << " BEFORE PUBLIC\n";
         for(auto const& path : b.debug.libraryPath)
         {
-            ss << "                " << path << "\n";
+            ss << "                ${CMAKE_SYSROOT}/" << path << "\n";
         }
         ss << "            )\n";
         ss << "\n";
@@ -708,7 +708,7 @@ std::string project::get_apple_osx_config()
         ss << "            target_include_directories(" << name << " PUBLIC\n";
         for(auto const& path : b.debug.headerPath)
         {
-            ss << "                " << path << "\n";
+            ss << "                ${CMAKE_SYSROOT}/" << path << "\n";
         }
         ss << "            )\n";
         ss << "\n";
@@ -725,7 +725,7 @@ std::string project::get_apple_osx_config()
         ss << "            target_link_directories(" << name << " BEFORE PUBLIC\n";
         for(auto const& path : b.debug.libraryPath)
         {
-            ss << "                " << path << "\n";
+            ss << "                ${CMAKE_SYSROOT}/" << path << "\n";
         }
         ss << "            )\n";
         ss << "\n";
@@ -786,7 +786,7 @@ std::string project::get_linux_config()
         }
         for(auto const& path : b.debug.headerPath)
         {
-            ss << "            " << path << "\n";
+            ss << "            ${CMAKE_SYSROOT}/" << path << "\n";
         }
         ss << "        )\n";
     }
@@ -801,7 +801,7 @@ std::string project::get_linux_config()
         ss << "        target_link_directories(" << name << " BEFORE PUBLIC\n";
         for(auto const& path : b.debug.libraryPath)
         {
-            ss << "            " << path << "\n";
+            ss << "            ${CMAKE_SYSROOT}/" << path << "\n";
         }
         ss << "        )\n";
     }
@@ -873,7 +873,7 @@ std::string project::get_msvc_config()
         ss << "    target_include_directories(" << name << " PUBLIC\n";
         for(auto const& path : b.debug.headerPath)
         {
-            ss << "        \"" << path << "\"\n";
+            ss << "        \"${CMAKE_SYSROOT}/" << path << "\"\n";
         }
         ss << "    )\n";
         ss << "\n";
@@ -898,7 +898,7 @@ std::string project::get_msvc_config()
         ss << "    target_link_directories(" << name << " BEFORE PUBLIC\n";
         for(auto const& path : b.debug.libraryPath)
         {
-            ss << "        \"" << path << "\"\n";
+            ss << "        \"${CMAKE_SYSROOT}/" << path << "\"\n";
         }
         ss << "    )\n";
     }
